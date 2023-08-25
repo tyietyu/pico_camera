@@ -1,0 +1,20 @@
+{
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "OpenOcdPath": "D:/Pico/openocd",
+    "PicoSdkPath": "D:/Pico/pico-sdk",
+    "cmake.cmakePath": "C:/Users/28670/scoop/apps/cmake/current/bin/cmake.exe",
+    "cmake.configureOnEdit": true,
+    "cmake.configureOnOpen": false,
+    "cmake.configureArgs": [],
+    "cmake.environment": {
+        "PICO_SDK_PATH": "D:/Pico/pico-sdk"
+    },
+    "cmake.generator": "MinGW Makefiles",
+    "cortex-debug.openocdPath": "${config:OpenOcdPath}/src/openocd.exe",
+    "files.associations": {
+        "*.m": "matlab",
+        "*.txt": "plaintext",
+        "uart.h": "c",
+        "i2c.h": "c"
+    }
+}
