@@ -30,6 +30,15 @@
 
 #define LED_PIN 25
 
+extern void uart_printf(const char *format, ...);
+extern void usb_printf(const char *format, ...);
+extern void web_printf(const char *format, ...);
+
 void pico_gpio_init();
 void pico_uart_init();
 void pico_i2c_init();
+
+#define SCCB_ID 0X21
+void SCCB_Init(void);
+uint8_t SCCB_WR_Reg(uint8_t reg, uint8_t data);
+uint8_t SCCB_RD_Reg(uint8_t reg);

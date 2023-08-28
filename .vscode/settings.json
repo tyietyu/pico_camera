@@ -15,6 +15,7 @@
         "*.m": "matlab",
         "*.txt": "plaintext",
         "uart.h": "c",
-        "i2c.h": "c"
+        "i2c.h": "c",
+        "ov7725.h": "c"
     }
 }

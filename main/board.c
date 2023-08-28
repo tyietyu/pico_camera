@@ -42,3 +42,20 @@ void pico_i2c_init()
     gpio_pull_up(I2C_SDA_PIN);
     gpio_pull_up(I2C_SCL_PIN);
 }
+
+void SCCB_Init()
+{
+    pico_i2c_init();
+}
+uint8_t SCCB_WR_Reg(uint8_t reg, uint8_t data)
+{
+    i2c_write_blocking(I2C_ID, SCCB_ID, (uint8_t[]){reg, data}, 2, false);
+    return 0;
+}
+uint8_t SCCB_RD_Reg(uint8_t reg)
+{
+    uint8_t data;
+    i2c_write_blocking(I2C_ID, SCCB_ID, &reg, 1, false);
+    i2c_read_blocking(I2C_ID, SCCB_ID, &data, 1, false);
+    return data;
+}
