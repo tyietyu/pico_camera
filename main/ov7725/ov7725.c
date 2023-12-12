@@ -3,35 +3,35 @@
 
 uint8_t ov7725_Init(void)
 {
-    uint16_t reg;
-    uint16_t i = 0;
+	uint16_t reg;
+	uint16_t i = 0;
 
-    SCCB_Init();
-    if (SCCB_WR_Reg(0x12, 0x80))
-        return 1;
-    sleep_ms(50);
-    reg = SCCB_RD_Reg(0X1c);
-    reg <<= 8;
-    reg |= SCCB_RD_Reg(0X1d);
-    if (reg != OV7725_MID)
-    {
-        usb_printf("MID:%d\r\n", reg);
-        return 1;
-    }
-    reg = SCCB_RD_Reg(0X0a);
-    reg <<= 8;
-    reg |= SCCB_RD_Reg(0X0b);
-    if (reg != OV7725_PID)
-    {
-        usb_printf("HID:%d\r\n", reg);
-        return 2;
-    }
-    // 初始化ov7725，采用QVGA分辨率(320*240)
-    for (i = 0; i < sizeof(ov7725_init_reg_tb1) / sizeof(ov7725_init_reg_tb1[0]); i++)
-    {
-        SCCB_WR_Reg(ov7725_init_reg_tb1[i][0], ov7725_init_reg_tb1[i][1]);
-    }
-    return 0x00; // ok
+	SCCB_Init();
+	if (SCCB_WR_Reg(0x12, 0x80))
+		return 1;
+	sleep_ms(50);
+	reg = SCCB_RD_Reg(0X1c);
+	reg <<= 8;
+	reg |= SCCB_RD_Reg(0X1d);
+	if (reg != OV7725_MID)
+	{
+		usb_printf("MID:%d\r\n", reg);
+		return 1;
+	}
+	reg = SCCB_RD_Reg(0X0a);
+	reg <<= 8;
+	reg |= SCCB_RD_Reg(0X0b);
+	if (reg != OV7725_PID)
+	{
+		usb_printf("HID:%d\r\n", reg);
+		return 2;
+	}
+	// 初始化ov7725，采用QVGA分辨率(320*240)
+	for (i = 0; i < sizeof(ov7725_init_reg_tb1) / sizeof(ov7725_init_reg_tb1[0]); i++)
+	{
+		SCCB_WR_Reg(ov7725_init_reg_tb1[i][0], ov7725_init_reg_tb1[i][1]);
+	}
+	return 0x00; // ok
 }
 ////////////////////////////////////////////////////////////////////////////
 // OV7725功能设置
@@ -270,4 +270,24 @@ void OV7725_Configure(void)
 	OV7725_Contrast(0);
 	OV7725_Special_Effects(0);
 	OV7725_Window_Set(OV7725_WINDOW_WIDTH, OV7725_WINDOW_HEIGHT, 0);
+}
+
+// 设置2-9的数据端口拉高
+void setData2To9_High()
+{
+	for (uint gpio = 2; gpio <= 9; gpio++)
+	{
+		gpio_init(gpio);
+		gpio_set_function(gpio, GPIO_FUNC_SIO);
+		gpio_set_dir(gpio, GPIO_OUT);
+	}
+}
+
+// 设置2-9数据口拉低
+void setData2To9_Low()
+{
+	for (uint gpio = 2; gpio <= 9; gpio++)
+	{
+		gpio_put(gpio,0);
+	}
 }

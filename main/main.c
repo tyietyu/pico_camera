@@ -9,6 +9,7 @@
 #include "rp2040_clock.h"
 #include "pico/binary_info.h"
 #include "ov7725.h"
+#include "lcd.h"
 
 #include "bsp/board.h"
 #include "tusb.h"
@@ -16,6 +17,11 @@
 
 #define APP_TX_DATA_SIZE 2048
 uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
+
+#define OV7725_WINDOW_WIDTH 128
+#define OV7725_WINDOW_HEIGHT 160
+uint8_t camera_buffer[128 * 160 * 2] = {0};
+
 /* Blink pattern
  * - 250 ms  : device not mounted
  * - 1000 ms : device mounted
@@ -43,6 +49,7 @@ const tusb_desc_webusb_url_t desc_url =
 static volatile bool web_serial_connected = false;
 static volatile bool usb_connected = false;
 static volatile uint32_t ov_sta = 0;
+volatile uint8_t ov_frame = 0;
 
 bool repeating_timer_callback(struct repeating_timer *t);
 void irq_vsync_cb(uint gpio, uint32_t events);
@@ -62,12 +69,16 @@ bool reserved_addr(uint8_t addr)
 
 int main()
 {
+    uint8_t i;
+    uint8_t sensor = 0;
     board_init();
     rp2040_clock_133Mhz();
 
     pico_gpio_init();
     pico_uart_init();
     pico_i2c_init();
+    lcd_init();
+    ov7725_Init();
 
     // init device stack on configured roothub port
     tud_init(BOARD_TUD_RHPORT);
@@ -88,7 +99,75 @@ int main()
 
     while (1)
     {
-    };
+        if (ov7725_Init() == 0)
+        {
+            OV7725_Light_Mode(0);
+            OV7725_Color_Saturation(0);
+            OV7725_Brightness(0);
+            OV7725_Contrast(0);
+            OV7725_Special_Effects(0);
+            OV7725_Window_Set(OV7725_WINDOW_WIDTH, OV7725_WINDOW_HEIGHT, 0);
+            gpio_put(OV7725_CS, 0);
+            break;
+        }
+        else
+        {
+            drawFont_GBK16(10,10,RED,GRAY0,"0v7725 error\r\n");
+            sleep_ms(200);
+            lcd_clear(WHITE);
+            sleep_ms(200);
+        }
+    }
+    while (1)
+    {
+        if(sensor==1)
+        {
+            OV7725_camera_refresh();
+        }
+    }
+    
+}
+
+void OV7725_camera_refresh(void)
+{
+    uint32_t i, j;
+    uint16_t color;
+    if (ov_sta == 2)
+    {
+        lcd_clear(BLACK);
+        lcd_set_area((lcdDevice.width - OV7725_WINDOW_WIDTH) / 2, (lcdDevice.height - OV7725_WINDOW_HEIGHT) / 2, OV7725_WINDOW_WIDTH, OV7725_WINDOW_HEIGHT);
+        lcd_write_Reg(lcdDevice.wramcmd);
+        gpio_put(OV7725_CS, 0);
+        gpio_put(ov7725_RRST, 0);
+        gpio_put(ov7725_RCLK, 0);
+        gpio_put(ov7725_RCLK, 1);
+        gpio_put(ov7725_RCLK, 0);
+        gpio_put(ov7725_RRST, 1);
+        gpio_put(ov7725_RCLK, 1);
+        for (i = 0; i < OV7725_WINDOW_WIDTH; i++)
+        {
+            for (j = 0; j < OV7725_WINDOW_HEIGHT; j++)
+            {
+                setData2To9_High();
+                gpio_put(ov7725_RCLK, 0);
+                color = OV7725_DATA;
+                gpio_put(ov7725_RCLK, 1);
+                color <<= 8;
+                gpio_put(ov7725_RCLK, 0);
+                color |= OV7725_DATA;
+                gpio_put(ov7725_RCLK, 1);
+                setData2To9_Low();
+                lcd_write_data(color);
+            }
+        }
+        gpio_put(OV7725_CS, 1);
+        gpio_put(ov7725_RCLK, 0);
+        gpio_put(ov7725_RCLK, 1);
+
+        ov_sta = 0;
+        ov_frame++;
+        lcd_clear(BLACK);
+    }
 }
 void i2c_detect(i2c_inst_t *i2c)
 {
@@ -124,6 +203,7 @@ void i2c_detect(i2c_inst_t *i2c)
 bool repeating_timer_callback(struct repeating_timer *t)
 {
     tud_task(); // tinyusb device task
+    ov_frame = 0;
     return true;
 }
 
