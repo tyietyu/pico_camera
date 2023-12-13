@@ -2,6 +2,7 @@
 #define _LCD_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define X_MAX_PIXEL     128
 #define Y_MAX_PIXEL     160
@@ -36,6 +37,16 @@ uint16_t lcd_bgr2rgb(uint16_t color);
 void lcdCircle(uint16_t X, uint16_t Y, uint16_t R, uint16_t fc);
 void draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color);
 void drawFont_GBK16(uint16_t x, uint16_t y, uint16_t fc, uint16_t bc, uint8_t *s);
-
+void lcd_read_point(uint16_t x, uint16_t y);
+void lcd_scan();
+//lcd
+void lcd_init();
+void lcd_rest();
+void lcd_write_Reg(uint8_t cmd, uint8_t data);
+void lcdSpi_write_data(uint8_t data);
+void lcd_write_data_16bit(uint16_t data);
+void lcd_write_cmd(uint8_t cmd);
+void lcd_write_data(uint8_t data);
+void lcdSetDCAndCS(bool dc, bool cs);
 
 #endif

@@ -100,8 +100,7 @@ int main()
     // ov7725 camera init
     sleep_ms(3000);
     i2c_detect(I2C_ID);
-    if (!ov7725_Init())
-        usb_printf("OV7725 Init OK\r\n");
+    if (!ov7725_Init())usb_printf("OV7725 Init OK\r\n");
     OV7725_Configure();
     lcd_clear(BLUE);
     sleep_ms(1000);

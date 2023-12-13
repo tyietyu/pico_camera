@@ -56,15 +56,6 @@ void pico_i2c_init();
 void pico_spi_init();
 void lcd_gpio_init();
 
-//lcd
-void lcd_init();
-void lcd_rest();
-void lcd_write_Reg(uint8_t cmd, uint8_t data);
-void lcd_write_data(uint8_t data);
-void lcd_write_data_16bit(uint16_t data);
-void lcd_write_cmd(uint8_t cmd);
-void lcd_write_data(uint8_t data);
-static inline void lcdSetDCAndCS(bool dc, bool cs);
 
 //camera
 #define SCCB_ID 0X21
