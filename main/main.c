@@ -17,7 +17,7 @@
 
 #define APP_TX_DATA_SIZE 2048
 uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
-
+#define  OV7725 1
 #define OV7725_WINDOW_WIDTH 128
 #define OV7725_WINDOW_HEIGHT 160
 uint8_t camera_buffer[128 * 160 * 2] = {0};
@@ -53,13 +53,20 @@ volatile uint8_t ov_frame = 0;
 
 bool repeating_timer_callback(struct repeating_timer *t);
 void irq_vsync_cb(uint gpio, uint32_t events);
+void OV7725_camera_refresh(void);
 void core1_entry();
 void web_printf(const char *format, ...);
 void usb_printf(const char *format, ...);
 void uart_printf(const char *format, ...);
-
 void i2c_detect(i2c_inst_t *i2c);
 
+void setup_timer(uint32_t interval_ms)
+{
+    struct repeating_timer timer;
+    // Setup a repeating alarm to go off every interval_ms
+    // The handler function will be called on core 1
+    add_repeating_timer_ms(interval_ms, repeating_timer_callback, NULL, NULL);
+}
 // I2C reserves some addresses for special purposes. We exclude these from the scan.
 // These are any addresses of the form 000 0xxx or 111 1xxx
 bool reserved_addr(uint8_t addr)
@@ -96,36 +103,37 @@ int main()
     if (!ov7725_Init())
         usb_printf("OV7725 Init OK\r\n");
     OV7725_Configure();
-
+    lcd_clear(BLUE);
+    sleep_ms(1000);
+    lcd_clear(RED);
+    sleep_ms(1000);
     while (1)
     {
         if (ov7725_Init() == 0)
         {
-            OV7725_Light_Mode(0);
-            OV7725_Color_Saturation(0);
-            OV7725_Brightness(0);
-            OV7725_Contrast(0);
-            OV7725_Special_Effects(0);
-            OV7725_Window_Set(OV7725_WINDOW_WIDTH, OV7725_WINDOW_HEIGHT, 0);
-            gpio_put(OV7725_CS, 0);
+            OV7725_Configure();
+            gpio_put(ov7725_OE, 0);
             break;
         }
         else
         {
-            drawFont_GBK16(10,10,RED,GRAY0,"0v7725 error\r\n");
+            drawFont_GBK16(10, 10, RED, GRAY0, "0v7725 error\r\n");
             sleep_ms(200);
             lcd_clear(WHITE);
             sleep_ms(200);
         }
     }
+    setup_timer(1000);
     while (1)
     {
-        if(sensor==1)
+        if(sensor == OV7725)OV7725_camera_refresh();
+        if(i!=ov_frame)
         {
-            OV7725_camera_refresh();
+            i = ov_frame;
+            lcd_clear(WHITE);
+            drawFont_GBK16(10, 10, RED, GRAY0, "camera error\r\n");
         }
     }
-    
 }
 
 void OV7725_camera_refresh(void)
@@ -134,10 +142,10 @@ void OV7725_camera_refresh(void)
     uint16_t color;
     if (ov_sta == 2)
     {
-        lcd_clear(BLACK);
-        lcd_set_area((lcdDevice.width - OV7725_WINDOW_WIDTH) / 2, (lcdDevice.height - OV7725_WINDOW_HEIGHT) / 2, OV7725_WINDOW_WIDTH, OV7725_WINDOW_HEIGHT);
-        lcd_write_Reg(lcdDevice.wramcmd);
-        gpio_put(OV7725_CS, 0);
+        lcd_scan_dir();
+        lcd_set_area(0, 0, OV7725_WINDOW_WIDTH, OV7725_WINDOW_HEIGHT);
+        lcd_write_data(0x2c);
+        gpio_put(ov7725_OE, 0);
         gpio_put(ov7725_RRST, 0);
         gpio_put(ov7725_RCLK, 0);
         gpio_put(ov7725_RCLK, 1);
@@ -148,7 +156,6 @@ void OV7725_camera_refresh(void)
         {
             for (j = 0; j < OV7725_WINDOW_HEIGHT; j++)
             {
-                setData2To9_High();
                 gpio_put(ov7725_RCLK, 0);
                 color = OV7725_DATA;
                 gpio_put(ov7725_RCLK, 1);
@@ -156,17 +163,16 @@ void OV7725_camera_refresh(void)
                 gpio_put(ov7725_RCLK, 0);
                 color |= OV7725_DATA;
                 gpio_put(ov7725_RCLK, 1);
-                setData2To9_Low();
                 lcd_write_data(color);
             }
         }
-        gpio_put(OV7725_CS, 1);
+        gpio_put(ov7725_OE, 1);
         gpio_put(ov7725_RCLK, 0);
         gpio_put(ov7725_RCLK, 1);
-
+        gpio_set_irq_enabled_with_callback(ov7725_VSYNC, GPIO_IRQ_EDGE_RISE, true, &irq_vsync_cb);
         ov_sta = 0;
         ov_frame++;
-        lcd_clear(BLACK);
+        lcd_scan_dir();
     }
 }
 void i2c_detect(i2c_inst_t *i2c)
@@ -202,7 +208,8 @@ void i2c_detect(i2c_inst_t *i2c)
 
 bool repeating_timer_callback(struct repeating_timer *t)
 {
-    tud_task(); // tinyusb device task
+    // tud_task(); // tinyusb device task
+    usb_printf("frame: %d\r\n", ov_frame);
     ov_frame = 0;
     return true;
 }
@@ -219,19 +226,19 @@ void core1_entry()
 void irq_vsync_cb(uint gpio, uint32_t events)
 {
     usb_printf("irq_vsync_cb\r\n");
-    if (ov_sta == 0)
+    if (ov_sta < 2)
     {
-        // 复位写指针
-        gpio_put(ov7725_WRST, 0);
-        gpio_put(ov7725_WRST, 1);
-        // 使能FIFO写入
-        gpio_put(ov7725_WEN, 1);
-    }
-    else
-    {
-        // 禁止FIFO写入
-        gpio_put(ov7725_WEN, 0);
-        ov_sta++;
+        if (ov_sta == 0)
+        {
+            gpio_put(ov7725_WRST, 0);
+            gpio_put(ov7725_WRST, 1);
+            gpio_put(ov7725_WEN, 1);
+        }
+        else
+        {
+            gpio_put(ov7725_WEN, 0);
+            ov_sta++;
+        }
     }
 }
 
